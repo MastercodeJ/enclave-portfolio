@@ -7,11 +7,13 @@
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "mock:server": "bun --env-file=../.env mock-server.js",
-    "trace": "bun --env-file=../.env trace.ts"
+    "trace": "bun --env-file=../.env trace.ts",
+    "trace:sepolia": "bun --env-file=../.env trace-sepolia.ts"
   },
   "license": "UNLICENSED",
   "dependencies": {
-    "@chainlink/cre-sdk": "1.18.0"
+    "@chainlink/cre-sdk": "1.18.0",
+    "viem": "^2.17.0"
   },
   "devDependencies": {
     "@types/bun": "latest",

@@ -6,6 +6,7 @@
       "name": "confidential-rebalancer-workflow",
       "dependencies": {
         "@chainlink/cre-sdk": "1.18.0",
+        "viem": "^2.17.0",
       },
       "devDependencies": {
         "@types/bun": "latest",

@@ -1,18 +1,27 @@
-# ==========================================================================
-# CRE WORKFLOW SETTINGS
-# ==========================================================================
+# staging  -> mock venue (fixtures over HTTP)
+# sepolia  -> Uniswap V3 on Ethereum Sepolia: real balances, real swaps
 staging-settings:
   user-workflow:
     workflow-name: "confidential-rebalancer-staging"
+    deployment-registry: "private"
   workflow-artifacts:
     workflow-path: "./main.ts"
     config-path: "./config.staging.json"
     secrets-path: "../secrets.yaml"
 
-# ==========================================================================
+sepolia-settings:
+  user-workflow:
+    workflow-name: "confidential-rebalancer-sepolia"
+    deployment-registry: "private"
+  workflow-artifacts:
+    workflow-path: "./main.ts"
+    config-path: "./config.sepolia.json"
+    secrets-path: "../secrets.yaml"
+
 production-settings:
   user-workflow:
-    workflow-name: "confidential-rebalancer-production"
+    workflow-name: "confidential-rebalancer"
+    deployment-registry: "private"
   workflow-artifacts:
     workflow-path: "./main.ts"
     config-path: "./config.production.json"

@@ -58,9 +58,19 @@ import {
   parsePortfolioSpec,
   requiredHistoryPeriods,
 } from "./portfolio";
-import { parsePriceHistory } from "./signal";
+import { type Rpc } from "./rpc";
+import { type UniswapConfig, uniswapVenue } from "./uniswap";
+import {
+  type ExecutableTrade,
+  type Holding,
+  type MockConfig,
+  type PlannedTrade,
+  type Venue,
+  mockVenue,
+} from "./venue";
 
 export { parseDecimalToScaled, parseIntegerString } from "./numeric";
+export { parseHoldings, parsePrices } from "./venue";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -75,32 +85,28 @@ export { parseDecimalToScaled, parseIntegerString } from "./numeric";
  */
 const MIN_TRADE_NOTIONAL_E8 = 1n * USD_SCALE; // $1.00
 
-const JSON_HEADERS = { "Content-Type": "application/json" };
-
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
 type SecretsConfig = {
-  portfolio_api_key_id: string;
   /** The PortfolioSpec JSON. The entire strategy is this one secret. */
   portfolio_spec_secret_id: string;
+  /** Mock venue only: API key for the fixture service. */
+  portfolio_api_key_id?: string;
+  /** Uniswap venue only: the wallet that holds the portfolio and signs swaps. */
+  private_key_id?: string;
 };
 
 export type Config = {
   schedule: string;
-  portfolio_base_url: string;
-  account_id: string;
+  venue: "mock" | "uniswap-v3";
+  rpc_url: string;
+  /** Mock venue settings. */
+  mock?: { base_url: string; account_id: string };
+  /** Uniswap venue settings. */
+  uniswap?: UniswapConfig;
   secrets_ids: SecretsConfig;
-};
-
-/** One position, as reported by the portfolio service. */
-type Holding = {
-  tokenId: string;
-  symbol: string;
-  /** Integer amount in the token's smallest unit. */
-  rawBalance: bigint;
-  decimals: number;
 };
 
 /** A valued position. */
@@ -119,21 +125,6 @@ type Allocation = {
   driftBps: bigint;
   /** Signed: positive means underweight (must buy), negative means overweight. */
   deltaUsdE8: bigint;
-};
-
-type PlannedTrade = {
-  tokenId: string;
-  symbol: string;
-  side: "buy" | "sell";
-  /** Always positive. */
-  notionalUsdE8: bigint;
-};
-
-/** A trade that passed the price-impact check and carries an executable bound. */
-type ExecutableTrade = PlannedTrade & {
-  /** Minimum acceptable output in the destination token's base units. */
-  minAmountOut: bigint;
-  destinationTokenId: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -320,104 +311,12 @@ export const buildTrades = (
 };
 
 // ---------------------------------------------------------------------------
-// HTTP
+// Price-impact check
 // ---------------------------------------------------------------------------
 
-const decodeBody = (raw: Uint8Array): string => new TextDecoder().decode(raw);
-
-const parseJsonBody = (body: string): Record<string, unknown> => {
-  try {
-    return asObject(JSON.parse(body));
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`invalid json response: ${message}; body=${body}`);
-  }
-};
-
-const getJson = (
-  runtime: TeeRuntime<Config>,
-  client: HTTPClient,
-  url: string,
-  headers: Record<string, string>,
-): Record<string, unknown> => {
-  const response = client.sendRequest(runtime, { url, method: "GET", headers }).result();
-  const raw = decodeBody(response.body);
-  if (response.statusCode >= 400) {
-    throw new Error(`GET ${url} failed status=${response.statusCode} body=${raw}`);
-  }
-  return parseJsonBody(raw);
-};
-
-const postJson = (
-  runtime: TeeRuntime<Config>,
-  client: HTTPClient,
-  url: string,
-  body: Record<string, unknown>,
-  headers: Record<string, string>,
-): Record<string, unknown> => {
-  const encoded = Buffer.from(new TextEncoder().encode(JSON.stringify(body))).toString(
-    "base64",
-  );
-  const response = client
-    .sendRequest(runtime, { url, method: "POST", body: encoded, headers })
-    .result();
-  const raw = decodeBody(response.body);
-  if (response.statusCode >= 400) {
-    throw new Error(`POST ${url} failed status=${response.statusCode} body=${raw}`);
-  }
-  return parseJsonBody(raw);
-};
-
-/** Parse the portfolio service's holdings payload into integer base units. */
-export const parseHoldings = (payload: unknown): Holding[] => {
-  const rows = Array.isArray(payload) ? payload : [];
-  if (rows.length === 0) {
-    throw new Error("portfolio response contained no holdings");
-  }
-
-  return rows.map((row) => {
-    const record = asObject(row);
-    const tokenId = String(record.token_id ?? "").trim();
-    if (tokenId === "") {
-      throw new Error("holding row is missing token_id");
-    }
-    const decimals = Number(record.decimals);
-    if (!Number.isInteger(decimals)) {
-      throw new Error(`holding ${tokenId} has non-integer decimals`);
-    }
-    return {
-      tokenId,
-      symbol: String(record.symbol ?? tokenId),
-      // Raw balance arrives as a string precisely so it survives portfolios
-      // larger than Number.MAX_SAFE_INTEGER base units.
-      rawBalance: parseIntegerString(
-        String(record.raw_balance ?? ""),
-        `raw_balance for ${tokenId}`,
-      ),
-      decimals,
-    } satisfies Holding;
-  });
-};
-
-/** Parse the price payload into 1e8 fixed-point USD. */
-export const parsePrices = (payload: unknown): Map<string, bigint> => {
-  const record = asObject(payload);
-  const prices = new Map<string, bigint>();
-  for (const [tokenId, rawPrice] of Object.entries(record)) {
-    prices.set(
-      tokenId,
-      parseDecimalToScaled(String(rawPrice), USD_DECIMALS, `price for ${tokenId}`),
-    );
-  }
-  if (prices.size === 0) {
-    throw new Error("price response contained no prices");
-  }
-  return prices;
-};
-
 /**
- * Ask the market service to quote each trade, and drop any leg whose price
- * impact breaches the private cap.
+ * Ask the venue to quote each trade, and drop any leg whose price impact
+ * breaches the private cap.
  *
  * This check runs INSIDE the enclave on purpose. Emitting maxPriceImpactBps
  * alongside the trade and letting the executor enforce it would publish the
@@ -427,61 +326,32 @@ export const parsePrices = (payload: unknown): Map<string, bigint> => {
  */
 const applyPriceImpactCap = (
   runtime: TeeRuntime<Config>,
-  client: HTTPClient,
-  baseUrl: string,
-  headers: Record<string, string>,
+  venue: Venue,
   trades: PlannedTrade[],
   maxPriceImpactBps: bigint,
   quoteTokenId: string,
 ): ExecutableTrade[] => {
   const executable: ExecutableTrade[] = [];
-
-  for (const trade of trades) {
-    // A buy spends the quote token to receive the asset; a sell does the
-    // reverse. The quote endpoint is asked about the direction we will
-    // actually trade, since impact is not symmetric.
-    const sourceTokenId = trade.side === "buy" ? quoteTokenId : trade.tokenId;
-    const destinationTokenId = trade.side === "buy" ? trade.tokenId : quoteTokenId;
-
-    const response = postJson(
-      runtime,
-      client,
-      `${baseUrl}/quote`,
-      {
-        token_in: sourceTokenId,
-        token_out: destinationTokenId,
-        // Notional is sent as a fixed-point string; the service knows the scale.
-        notional_usd_e8: trade.notionalUsdE8.toString(),
-      },
-      headers,
-    );
-
-    const impactBps = parseIntegerString(
-      String(response.price_impact_bps ?? ""),
-      `price_impact_bps for ${trade.tokenId}`,
-    );
-    const amountOut = parseIntegerString(
-      String(response.amount_out ?? ""),
-      `amount_out for ${trade.tokenId}`,
-    );
-
-    if (impactBps < 0n) {
-      throw new Error(`negative price impact for ${trade.tokenId}: ${impactBps}`);
+  const quotes = venue.quotes(trades, quoteTokenId);
+  for (const [index, trade] of trades.entries()) {
+    const quote = quotes[index];
+    if (quote.impactBps < 0n) {
+      throw new Error(`negative price impact for ${trade.tokenId}`);
     }
-    if (amountOut <= 0n) {
-      throw new Error(`non-positive quote output for ${trade.tokenId}: ${amountOut}`);
+    if (quote.amountOut <= 0n) {
+      throw new Error(`non-positive quote output for ${trade.tokenId}`);
     }
-
-    if (impactBps > maxPriceImpactBps) {
-      // Deliberately does not name the threshold in the log -- see the note on
-      // logging discipline in onCronTrigger.
+    if (quote.impactBps > maxPriceImpactBps) {
+      // Deliberately does not name the threshold in the log.
       runtime.log(`skip-leg token=${trade.tokenId} reason=price-impact`);
       continue;
     }
-
-    executable.push({ ...trade, minAmountOut: amountOut, destinationTokenId });
+    executable.push({
+      ...trade,
+      minAmountOut: quote.amountOut,
+      destinationTokenId: trade.side === "buy" ? trade.tokenId : quoteTokenId,
+    });
   }
-
   return executable;
 };
 
@@ -498,48 +368,41 @@ const applyPriceImpactCap = (
  * logged.
  */
 export const onCronTrigger = async (runtime: TeeRuntime<Config>): Promise<string> => {
-  const { portfolio_base_url, account_id, secrets_ids } = runtime.config;
+  const config = runtime.config;
+  const ids = config.secrets_ids;
 
-  // ---- 1. the spec -------------------------------------------------------
-  const secrets = runtime
-    .getSecrets([
-      { id: secrets_ids.portfolio_api_key_id },
-      { id: secrets_ids.portfolio_spec_secret_id },
-    ])
-    .result();
+  // ---- 1. the spec, and the venue --------------------------------------
+  const wanted = [{ id: ids.portfolio_spec_secret_id }];
+  if (ids.portfolio_api_key_id) wanted.push({ id: ids.portfolio_api_key_id });
+  if (ids.private_key_id) wanted.push({ id: ids.private_key_id });
+  const secrets = runtime.getSecrets(wanted).result();
 
-  const spec: PortfolioSpec = parsePortfolioSpec(secrets[secrets_ids.portfolio_spec_secret_id].value);
-
-  const headers = {
-    ...JSON_HEADERS,
-    "x-api-key": secrets[secrets_ids.portfolio_api_key_id].value,
-  };
+  const spec: PortfolioSpec = parsePortfolioSpec(secrets[ids.portfolio_spec_secret_id].value);
   const client = new HTTPClient();
 
-  // ---- 2. public inputs --------------------------------------------------
-  const portfolioResponse = getJson(
-    runtime,
-    client,
-    `${portfolio_base_url}/portfolio/${account_id}`,
-    headers,
-  );
-  const holdings = parseHoldings(portfolioResponse.holdings);
+  let venue: Venue;
+  let accountId: string;
+  if (config.venue === "uniswap-v3") {
+    if (!config.uniswap || !ids.private_key_id) throw new Error("uniswap venue requires config.uniswap and secrets_ids.private_key_id");
+    const rpc: Rpc = { runtime, client, url: config.rpc_url, nextId: 1 };
+    venue = uniswapVenue(rpc, config.uniswap, normalizePrivateKey(secrets[ids.private_key_id].value));
+    accountId = "wallet";
+  } else {
+    if (!config.mock || !ids.portfolio_api_key_id) throw new Error("mock venue requires config.mock and secrets_ids.portfolio_api_key_id");
+    const mock: MockConfig = { ...config.mock, api_key: secrets[ids.portfolio_api_key_id].value };
+    venue = mockVenue(runtime, client, mock);
+    accountId = config.mock.account_id;
+  }
 
-  const pricesResponse = getJson(runtime, client, `${portfolio_base_url}/prices`, headers);
-  const pricesUsdE8 = parsePrices(pricesResponse.prices);
+  // ---- 2. public inputs --------------------------------------------------
+  const holdings: Holding[] = venue.holdings(spec.universe);
+  const pricesUsdE8 = venue.prices(spec.universe);
 
   // Price history is public data, but the lookbacks applied to it, the signals
   // that consume it and the strengths they compose at are all in the spec --
   // so the targets that come out cannot be reproduced from the prices alone.
   const periods = requiredHistoryPeriods(spec);
-  const history =
-    periods > 0
-      ? parsePriceHistory(
-          getJson(runtime, client, `${portfolio_base_url}/history?periods=${periods}`, headers)
-            .history,
-          parseDecimalToScaled,
-        )
-      : new Map<string, bigint[]>();
+  const history = periods > 0 ? venue.history(spec.universe, periods) : new Map<string, bigint[]>();
 
   // ---- 3. the decision ---------------------------------------------------
   const targetWeightsBps = composeTargets(spec, {
@@ -564,47 +427,31 @@ export const onCronTrigger = async (runtime: TeeRuntime<Config>): Promise<string
     return "NOOP";
   }
 
-  const executable = applyPriceImpactCap(
-    runtime,
-    client,
-    portfolio_base_url,
-    headers,
-    planned,
-    spec.policy.maxPriceImpactBps,
-    spec.quote,
-  );
+  const executable = applyPriceImpactCap(runtime, venue, planned, spec.policy.maxPriceImpactBps, spec.quote);
   if (executable.length === 0) {
     runtime.log("rebalance-skip reason=all-legs-exceeded-impact");
     return "NOOP";
   }
 
   // ---- 4. what leaves the enclave ---------------------------------------
-  const executionResponse = postJson(
-    runtime,
-    client,
-    `${portfolio_base_url}/execute-rebalance`,
-    {
-      account_id,
-      // Note what is absent: no spec, no targets, no drift, no caps. Only orders.
-      trades: executable.map((trade) => ({
-        token_id: trade.tokenId,
-        symbol: trade.symbol,
-        side: trade.side,
-        notional_usd_e8: trade.notionalUsdE8.toString(),
-        min_amount_out: trade.minAmountOut.toString(),
-        destination_token_id: trade.destinationTokenId,
-      })),
-    },
-    headers,
-  );
-
+  // Note what is absent: no spec, no targets, no drift, no caps. Only orders.
+  const executionId = await venue.execute(executable, accountId);
   runtime.log(`rebalance-executed legs=${executable.length}`);
 
-  return JSON.stringify({
-    status: "EXECUTED",
-    tradeCount: executable.length,
-    executionId: String(executionResponse.execution_id ?? "unknown"),
-  });
+  return JSON.stringify({ status: "EXECUTED", tradeCount: executable.length, executionId });
+};
+
+/**
+ * viem wants a 0x-prefixed 32-byte hex key; wallets export it either way.
+ * Normalise without ever echoing the value.
+ */
+const normalizePrivateKey = (raw: string): `0x${string}` => {
+  const trimmed = raw.trim();
+  const hex = trimmed.startsWith("0x") || trimmed.startsWith("0X") ? trimmed.slice(2) : trimmed;
+  if (!/^[0-9a-fA-F]{64}$/.test(hex)) {
+    throw new Error("private key secret is not a 32-byte hex string");
+  }
+  return `0x${hex}`;
 };
 
 // ---------------------------------------------------------------------------
@@ -612,11 +459,11 @@ export const onCronTrigger = async (runtime: TeeRuntime<Config>): Promise<string
 // ---------------------------------------------------------------------------
 
 export const initWorkflow = (config: Config): Workflow<Config> => {
-  if (!config.schedule || !config.portfolio_base_url || !config.account_id) {
-    throw new Error("config requires schedule, portfolio_base_url and account_id");
+  if (!config.schedule || !config.rpc_url || !config.venue) {
+    throw new Error("config requires schedule, rpc_url and venue");
   }
-  if (!config.secrets_ids?.portfolio_api_key_id || !config.secrets_ids?.portfolio_spec_secret_id) {
-    throw new Error("config requires secrets_ids.portfolio_api_key_id and portfolio_spec_secret_id");
+  if (!config.secrets_ids?.portfolio_spec_secret_id) {
+    throw new Error("config requires secrets_ids.portfolio_spec_secret_id");
   }
 
   const cron = new CronCapability();
