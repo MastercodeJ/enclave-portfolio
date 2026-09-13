@@ -1,4 +1,4 @@
-# Confidential Portfolio Engine — ETHOnline 2026, Chainlink CRE
+# Enclave Portfolio — ETHOnline 2026, Chainlink CRE
 
 Two Chainlink CRE **Confidential Workflows**. In both, the strategy is a secret
 decrypted only inside an AWS Nitro enclave; what leaves the enclave is a signed
