@@ -38,6 +38,19 @@ const priceFromSqrt = (sqrt: bigint, dec0: number, dec1: number) => {
   return p * p * 10 ** (dec0 - dec1);
 };
 
+/** Served only by a local operator process (bun run operator). Never public. */
+type Operator = {
+  computedAt: string;
+  signals: { type: string; strengthBps: number; params: Record<string, unknown> }[];
+  policy: { driftThresholdBps: number; maxTradeBps: number; maxPriceImpactBps: number };
+  rows: { symbol: string; baseBps: number; targetBps: number; currentBps: number; driftBps: number; deltaUsd: number; minBps: number; maxBps: number }[];
+  maxDriftBps: number;
+  wouldAct: boolean;
+  planned: { side: string; symbol: string; notionalUsd: number }[];
+};
+const OPERATOR_URL = "http://127.0.0.1:8790/operator";
+const pctOf = (bps: number) => `${(bps / 100).toFixed(2)}%`;
+
 type Portfolio = {
   rows: { symbol: string; amount: number; priceUsd: number; valueUsd: number; weight: number }[];
   totalUsd: number;
@@ -139,6 +152,15 @@ export function DashboardPage() {
   const [positions, setPositions] = useState<Position[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
+  const [operator, setOperator] = useState<Operator | null>(null);
+  const [reveal, setReveal] = useState(() => new URLSearchParams(window.location.search).get("reveal") === "1");
+
+  // Probe for the local operator service; absent in any public deployment.
+  useEffect(() => {
+    let cancelled = false;
+    fetch(OPERATOR_URL).then((r) => (r.ok ? r.json() : null)).then((d) => { if (!cancelled && d && !d.error) setOperator(d as Operator); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [tick]);
 
   useEffect(() => {
     let cancelled = false;
@@ -165,8 +187,21 @@ export function DashboardPage() {
           <h1>Enclave Portfolio</h1>
           <p className="muted">Everything below is public on Sepolia. The strategy that produced it is not.</p>
         </div>
-        <div className="enclave-badge">🔒 decisions made in AWS Nitro · Chainlink CRE</div>
+        <div className="dash-badges">
+          <div className="enclave-badge">🔒 decisions made in AWS Nitro · Chainlink CRE</div>
+          {operator && (
+            <button className={`btn btn-sm ${reveal ? "btn-warning" : "btn-secondary"}`} onClick={() => setReveal((v) => !v)}>
+              {reveal ? "Hide sealed values" : "Reveal sealed values (operator, local only)"}
+            </button>
+          )}
+        </div>
       </div>
+      {reveal && operator && (
+        <div className="info-box operator-note">
+          Operator view. These values come from a process on <b>this machine</b> reading the owner's spec —
+          not from the chain, not from the enclave, and not available to anyone else. Computed {new Date(operator.computedAt).toLocaleTimeString()}.
+        </div>
+      )}
       {error && <div className="alert-error">{error}</div>}
 
       <section className="panel">
@@ -178,12 +213,15 @@ export function DashboardPage() {
           <>
             <div className="stat-row">
               <div className="stat"><div className="stat-label">book value</div><div className="stat-value">${portfolio.totalUsd.toFixed(2)}</div></div>
-              <div className="stat"><div className="stat-label">target weights</div><div className="stat-value sealed">sealed</div></div>
-              <div className="stat"><div className="stat-label">drift band</div><div className="stat-value sealed">sealed</div></div>
-              <div className="stat"><div className="stat-label">signals</div><div className="stat-value sealed">sealed</div></div>
+              <div className="stat"><div className="stat-label">target weights</div>
+                {reveal && operator ? <div className="stat-value revealed">{operator.rows.map((r) => `${r.symbol} ${pctOf(r.targetBps)}`).join(" · ")}</div> : <div className="stat-value sealed">sealed</div>}</div>
+              <div className="stat"><div className="stat-label">drift band</div>
+                {reveal && operator ? <div className="stat-value revealed">{pctOf(operator.policy.driftThresholdBps)} · now {pctOf(operator.maxDriftBps)} {operator.wouldAct ? "→ would act" : "→ hold"}</div> : <div className="stat-value sealed">sealed</div>}</div>
+              <div className="stat"><div className="stat-label">signals</div>
+                {reveal && operator ? <div className="stat-value revealed">{operator.signals.map((g) => `${g.type} ${pctOf(g.strengthBps)}${"lookback" in g.params ? ` (${String(g.params.lookback)})` : ""}`).join(" · ") || "none"}</div> : <div className="stat-value sealed">sealed</div>}</div>
             </div>
             <table className="table">
-              <thead><tr><th>token</th><th>held</th><th>price</th><th>value</th><th>weight</th></tr></thead>
+              <thead><tr><th>token</th><th>held</th><th>price</th><th>value</th><th>weight</th>{reveal && operator && <><th className="revealed">base</th><th className="revealed">target</th><th className="revealed">drift</th><th className="revealed">bounds</th></>}</tr></thead>
               <tbody>
                 {portfolio.rows.map((r) => (
                   <tr key={r.symbol}>
@@ -194,10 +232,25 @@ export function DashboardPage() {
                     <td>
                       <div className="weight"><div className="weight-bar" style={{ width: `${(r.weight * 100).toFixed(1)}%` }} /><span>{(r.weight * 100).toFixed(1)}%</span></div>
                     </td>
+                    {reveal && operator && (() => { const o = operator.rows.find((x) => x.symbol === r.symbol); return o ? <>
+                      <td className="revealed">{pctOf(o.baseBps)}</td>
+                      <td className="revealed"><b>{pctOf(o.targetBps)}</b></td>
+                      <td className="revealed">{pctOf(o.driftBps)}</td>
+                      <td className="revealed">{pctOf(o.minBps)}–{pctOf(o.maxBps)}</td>
+                    </> : <td colSpan={4} />; })()}
                   </tr>
                 ))}
               </tbody>
             </table>
+            {reveal && operator && (
+              <div className="info-box operator-note">
+                <b>What the enclave would do next:</b>{" "}
+                {operator.wouldAct
+                  ? operator.planned.map((t) => `${t.side.toUpperCase()} ${t.symbol} $${t.notionalUsd.toFixed(2)}`).join(" · ")
+                  : "hold — within the drift band"}
+                <span className="muted"> · max trade {pctOf(operator.policy.maxTradeBps)} of book · impact cap {pctOf(operator.policy.maxPriceImpactBps)}</span>
+              </div>
+            )}
             <h3 className="subhead">Swaps by the workflow wallet</h3>
             {portfolio.swaps.length === 0 ? <p className="muted">none in the last ~5 days</p> : (
               <ul className="tx-list">

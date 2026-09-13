@@ -338,3 +338,8 @@ button { font-family: inherit; cursor: pointer; }
 .nav { display: flex; gap: 14px; margin-left: 18px; }
 .nav a { color: #b8c7e6; text-decoration: none; font-size: 14px; }
 .nav a.active { color: #5ee7df; }
+
+.dash-badges { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.revealed { color: #ffbd2e; }
+.stat-value.revealed { font-size: 14px; }
+.operator-note { border-color: rgba(255,189,46,0.4); background: rgba(255,189,46,0.06); }

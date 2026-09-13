@@ -8,7 +8,8 @@
     "test": "bun test",
     "mock:server": "bun --env-file=../.env mock-server.js",
     "trace": "bun --env-file=../.env trace.ts",
-    "trace:sepolia": "bun --env-file=../.env trace-sepolia.ts"
+    "trace:sepolia": "bun --env-file=../.env trace-sepolia.ts",
+    "operator": "bun --env-file=../.env operator.ts"
   },
   "license": "UNLICENSED",
   "dependencies": {
