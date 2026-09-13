@@ -123,7 +123,7 @@ const parseWeights = (raw: unknown, universe: Set<string>, label: string): Map<s
   // No tolerance: bps are integers, so "33/33/33" is a real error the user
   // should be told about rather than have quietly rescaled behind their back.
   if (sum !== BPS_DENOMINATOR) {
-    throw new Error(`${label} must sum to exactly ${BPS_DENOMINATOR} bps, got ${sum}`);
+    throw new Error(`${label} must sum to exactly ${BPS_DENOMINATOR} bps`);
   }
   return weights;
 };
@@ -159,9 +159,7 @@ const parseSignals = (raw: unknown): SignalSpec[] => {
   // Strengths are shares of the final target; more than 100% is not a
   // portfolio, it is a leverage instruction this layer does not express.
   if (totalStrength > BPS_DENOMINATOR) {
-    throw new Error(
-      `spec.signals strengths sum to ${totalStrength} bps; must not exceed ${BPS_DENOMINATOR}`,
-    );
+    throw new Error(`spec.signals strengths must not exceed ${BPS_DENOMINATOR} bps in total`);
   }
   return signals;
 };
@@ -179,7 +177,7 @@ const parseConstraints = (raw: unknown, universe: string[]): Bounds => {
     "spec.constraints.max_weight",
   );
   if (minWeight > maxWeight) {
-    throw new Error(`spec.constraints: min_weight ${minWeight} exceeds max_weight ${maxWeight}`);
+    throw new Error("spec.constraints: min_weight exceeds max_weight");
   }
 
   const minBps = new Map<string, bigint>();
@@ -216,16 +214,16 @@ const parseConstraints = (raw: unknown, universe: string[]): Bounds => {
     const lo = minBps.get(tokenId) ?? 0n;
     const hi = maxBps.get(tokenId) ?? BPS_DENOMINATOR;
     if (lo > hi) {
-      throw new Error(`spec.constraints: ${tokenId} min ${lo} exceeds max ${hi}`);
+      throw new Error("spec.constraints: a per-asset min exceeds its max");
     }
     sumMin += lo;
     sumMax += hi;
   }
   if (sumMin > BPS_DENOMINATOR) {
-    throw new Error(`spec.constraints: minimum weights sum to ${sumMin} bps, over 100%; unsatisfiable`);
+    throw new Error("spec.constraints: minimum weights sum to over 100%; unsatisfiable");
   }
   if (sumMax < BPS_DENOMINATOR) {
-    throw new Error(`spec.constraints: maximum weights sum to ${sumMax} bps, under 100%; unsatisfiable`);
+    throw new Error("spec.constraints: maximum weights sum to under 100%; unsatisfiable");
   }
 
   return { minBps, maxBps };

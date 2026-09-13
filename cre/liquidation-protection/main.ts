@@ -25,6 +25,7 @@ import {
   NITRO_REGIONS,
   Runner,
   handlerInTee,
+  logTriggerConfig,
   type TeeConstraint,
   type TeeRuntime,
   type Workflow,
@@ -284,8 +285,18 @@ export const protect = async (runtime: TeeRuntime<Config>): Promise<string> => {
     return "HELD";
   }
 
+  // The log trigger and the cron backstop can fire seconds apart. If one of
+  // our transactions is still unmined, the second execution would read the
+  // same position, reach the same decision, and send it again -- doubling a
+  // deposit or a repay. Hold until the chain has caught up.
+  const latestNonce = hexToBigint(rpcCall(rpc, "eth_getTransactionCount", [signer.address, "latest"]));
+  const pendingNonce = hexToBigint(rpcCall(rpc, "eth_getTransactionCount", [signer.address, "pending"]));
+  if (pendingNonce > latestNonce) {
+    runtime.log("held reason=inflight");
+    return "HELD";
+  }
   const gasPrice = hexToBigint(rpcCall(rpc, "eth_gasPrice", []));
-  let nonce = Number(hexToBigint(rpcCall(rpc, "eth_getTransactionCount", [signer.address, "pending"])));
+  let nonce = Number(pendingNonce);
   const hashes: string[] = [];
   for (const action of decision.actions) {
     const hash = await sendAction(rpc, signer, lending, action, nonce++, gasPrice, BigInt(config.gas_limit));
@@ -312,12 +323,17 @@ export const initWorkflow = (config: Config): Workflow<Config> => {
 
   return [
     // 0: react the moment the scenario starts or the price moves.
+    // logTriggerConfig validates lengths and base64-encodes the bytes fields.
+    // Passing raw hex to logTrigger() directly is silently decoded as base64
+    // into garbage, and the trigger never matches.
     handlerInTee(
-      evm.logTrigger({
-        addresses: [config.lending_address],
-        topics: [{ values: [TOPIC_CHALLENGE_STARTED, TOPIC_PRICE_UPDATE] }],
-        confidence: "CONFIDENCE_LEVEL_LATEST",
-      }),
+      evm.logTrigger(
+        logTriggerConfig({
+          addresses: [config.lending_address],
+          topics: [[TOPIC_CHALLENGE_STARTED, TOPIC_PRICE_UPDATE]],
+          confidence: "LATEST",
+        }),
+      ),
       protect,
       tee,
     ),

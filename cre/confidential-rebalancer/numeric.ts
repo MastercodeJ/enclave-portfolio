@@ -64,7 +64,7 @@ export const parseDecimalToScaled = (
 export const parseIntegerString = (raw: string, label: string): bigint => {
   const text = raw.trim();
   if (!/^-?\d+$/.test(text)) {
-    throw new Error(`${label}: not an integer, got "${raw}"`);
+    throw new Error(`${label}: not an integer`);
   }
   return BigInt(text);
 };
@@ -79,7 +79,7 @@ export const parseIntegerValue = (value: unknown, label: string): bigint => {
   }
   if (typeof value === "number") {
     if (!Number.isInteger(value)) {
-      throw new Error(`${label}: must be an integer, got ${value}`);
+      throw new Error(`${label}: must be an integer`);
     }
     return BigInt(value);
   }
@@ -90,8 +90,11 @@ export const parseIntegerValue = (value: unknown, label: string): bigint => {
 };
 
 export const requireInRange = (value: bigint, range: Range, label: string): bigint => {
+  // The offending value is deliberately omitted: an error that escapes the
+  // enclave is a public log line, and these values come from secrets. The
+  // range bounds are public constants and safe to show.
   if (value < range.min || value > range.max) {
-    throw new Error(`${label}: ${value} outside accepted range [${range.min}, ${range.max}]`);
+    throw new Error(`${label}: outside accepted range [${range.min}, ${range.max}]`);
   }
   return value;
 };

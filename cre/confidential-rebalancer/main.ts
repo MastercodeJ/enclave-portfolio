@@ -325,7 +325,6 @@ export const buildTrades = (
  * learns the threshold that produced it.
  */
 const applyPriceImpactCap = (
-  runtime: TeeRuntime<Config>,
   venue: Venue,
   trades: PlannedTrade[],
   maxPriceImpactBps: bigint,
@@ -342,8 +341,9 @@ const applyPriceImpactCap = (
       throw new Error(`non-positive quote output for ${trade.tokenId}`);
     }
     if (quote.impactBps > maxPriceImpactBps) {
-      // Deliberately does not name the threshold in the log.
-      runtime.log(`skip-leg token=${trade.tokenId} reason=price-impact`);
+      // No log line here on purpose: naming the dropped leg would tell an
+      // observer which asset the enclave wanted to trade and did not. The
+      // caller's coarse "all-legs-exceeded-impact" is the only signal.
       continue;
     }
     executable.push({
@@ -427,7 +427,7 @@ export const onCronTrigger = async (runtime: TeeRuntime<Config>): Promise<string
     return "NOOP";
   }
 
-  const executable = applyPriceImpactCap(runtime, venue, planned, spec.policy.maxPriceImpactBps, spec.quote);
+  const executable = applyPriceImpactCap(venue, planned, spec.policy.maxPriceImpactBps, spec.quote);
   if (executable.length === 0) {
     runtime.log("rebalance-skip reason=all-legs-exceeded-impact");
     return "NOOP";

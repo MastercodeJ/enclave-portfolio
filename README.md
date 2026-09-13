@@ -132,6 +132,27 @@ the workflow wallet's Sepolia ETH.
 Until access is approved, `cre workflow simulate` runs a single tick locally
 against the same contracts.
 
+## Known limits
+
+Found in review and deliberately left as-is for the hackathon; each is
+isolated and documented at the spot in the code.
+
+- **Same-pool legs are quoted against the same pre-trade state.** Two legs
+  that route through one pool (WETH→USDC and LINK→WETH→USDC both touch the
+  WETH/USDC pool) push it the same way, so the second leg's realised output is
+  below its quote. On thin testnet pools that can breach `amountOutMinimum`
+  and revert the atomic multicall; the next tick simply retries. Fix: quote
+  sequentially or widen `slippage_bps` for shared-pool plans.
+- **A pool with no swaps in the history window reads as zero volatility.**
+  The series is back-filled with the current price, `computeVolatility`
+  floors it at 1 bp, and `inverse_volatility` then over-weights that asset --
+  the opposite of the intent for an illiquid pool. Fix: treat an empty window
+  as "no history" and let the signal defer to the base allocation.
+- **The liquidation cooldown look-back covers ~6.7 h** (2,000 blocks) while
+  the policy accepts `cooldown_seconds` up to 24 h. Beyond the look-back a
+  prior action is invisible and the cooldown is silently off. Fix: derive the
+  look-back from the policy value.
+
 ## Status and evidence
 
 - Rebalancer: 80/80 tests, simulator `EXECUTED` through the Nitro path

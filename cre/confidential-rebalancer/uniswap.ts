@@ -232,16 +232,40 @@ export const uniswapVenue = (rpc: Rpc, config: UniswapConfig, privateKey: Hex): 
       // Every leg in ONE transaction via the router's multicall: sells fund
       // buys atomically, there is a single nonce, and a partial rebalance is
       // impossible -- either the whole plan lands or none of it does.
-      const calls = trades.map((trade) => {
-        const minOut = (trade.minAmountOut * (BPS_DENOMINATOR - BigInt(config.slippage_bps))) / BPS_DENOMINATOR;
-        return encodeFunctionData({ abi: ROUTER_ABI, functionName: "exactInput", args: [{
-          path: encodePath(tradeHops(trade)), recipient: signer.address, amountIn: amountInFor(trade), amountOutMinimum: minOut,
-        }] });
-      });
+      //
+      // Because it is atomic, a buy that outruns the quote token the wallet
+      // will hold reverts the whole thing. Sells come first (buildTrades
+      // orders them so), so walk the plan keeping a running quote budget:
+      // balance now, plus each sell's guaranteed minimum output, minus each
+      // buy's input. A buy is cut to the budget and its minimum output scaled
+      // in proportion; a buy with no budget is dropped.
+      const slippageKeep = BPS_DENOMINATOR - BigInt(config.slippage_bps);
+      let quoteBudget = snap().balances.get(quoteId) ?? 0n;
+      const calls: Hex[] = [];
+      for (const trade of trades) {
+        const desiredIn = amountInFor(trade);
+        let amountIn = desiredIn;
+        let minOut = (trade.minAmountOut * slippageKeep) / BPS_DENOMINATOR;
+        if (trade.side === "sell") {
+          quoteBudget += minOut; // sells end at the quote token
+        } else {
+          if (quoteBudget <= 0n) continue;
+          if (amountIn > quoteBudget) {
+            amountIn = quoteBudget;
+            minOut = (minOut * amountIn) / desiredIn;
+          }
+          quoteBudget -= amountIn;
+        }
+        if (amountIn <= 0n) continue;
+        calls.push(encodeFunctionData({ abi: ROUTER_ABI, functionName: "exactInput", args: [{
+          path: encodePath(tradeHops(trade)), recipient: signer.address, amountIn, amountOutMinimum: minOut,
+        }] }));
+      }
+      if (calls.length === 0) throw new Error("no executable legs within the quote budget");
       const data = encodeFunctionData({ abi: ROUTER_ABI, functionName: "multicall", args: [calls] });
       const signed = await signer.signTransaction({
         chainId: config.chain_id, to: config.router, data,
-        gas: BigInt(config.gas_limit) * BigInt(trades.length), gasPrice: hexToBigint(gasPriceHex),
+        gas: BigInt(config.gas_limit) * BigInt(calls.length), gasPrice: hexToBigint(gasPriceHex),
         nonce: Number(hexToBigint(nonceHex)), value: 0n,
       });
       return String(rpcCall(rpc, "eth_sendRawTransaction", [signed]));
