@@ -1,0 +1,27 @@
+# ==========================================================================
+# CRE PROJECT SETTINGS
+# ==========================================================================
+# RPC URLs support ${VAR_NAME} syntax to reference environment variables,
+# which keeps secrets out of this file (it is committed to git).
+#
+# Hedera is not in the official chain-selectors list. When the audit-log
+# contract moves from Sepolia to Hedera testnet, add it here as an
+# experimental chain and reference it in the workflow as
+#   evm:ChainSelector:<selector>@1.0.0
+#
+#   experimental-chains:
+#     - chain-selector: <hedera testnet selector>
+#       rpc-url: "https://testnet.hashio.io/api"
+#       forwarder: "0x..."
+
+# ==========================================================================
+staging-settings:
+  rpcs:
+    - chain-name: ethereum-testnet-sepolia
+      url: https://ethereum-sepolia-rpc.publicnode.com
+
+# ==========================================================================
+production-settings:
+  rpcs:
+    - chain-name: ethereum-testnet-sepolia
+      url: https://ethereum-sepolia-rpc.publicnode.com

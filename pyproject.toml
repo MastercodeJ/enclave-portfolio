@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "defi-copilot"
+version = "0.1.0"
+description = "Autonomous HTS portfolio rebalancer on Hedera"
+requires-python = ">=3.10,<3.14"
+dependencies = [
+    "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+# The Hedera Agent Kit is only needed for the LLM-facing tool wrapper.
+# The core portfolio module deliberately does not depend on it.
+agent = [
+    "hedera-agent-kit>=3.4.2",
+    "pydantic>=2.0",
+]
+# The HTTP API and single-page UI.
+web = [
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    "python-dotenv>=1.0",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "respx>=0.21",
+]
+
+[tool.setuptools.packages.find]
+include = ["src*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+# Live tests hit real testnet and are slow, so they are opt-in: run them with
+# `pytest -m live`. Testnet resets quarterly, which will eventually break them.
+addopts = '-m "not live"'
+markers = [
+    "live: hits the real Hedera testnet (run with '-m live')",
+]

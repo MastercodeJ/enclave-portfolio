@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DeFi Copilot</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>DeFi Copilot</h1>
+    <p>Describe how you want your portfolio managed. The agent keeps it there.</p>
+    <div class="status">
+      <span class="dot" id="statusDot"></span>
+      <span id="statusText">checking…</span>
+    </div>
+  </header>
+
+  <!-- Strategy from a prompt -->
+  <section class="card" id="promptCard">
+    <h2>Your strategy</h2>
+    <p class="hint">Say what mix you want, how often to rebalance, and any limits.</p>
+
+    <textarea id="prompt" rows="3"
+      placeholder="Keep me 50/30/20 HBAR USDC SAUCE, rebalance weekly, never trade more than 20% at once"></textarea>
+
+    <div class="examples" id="examples"></div>
+
+    <div class="row mt">
+      <button id="parseBtn">Build strategy</button>
+      <span id="parseSpin" class="spinner hidden"></span>
+    </div>
+
+    <div class="notice mt hidden" id="noLlm">
+      No LLM key configured, so prompts can't be interpreted yet. Add
+      <code>ANTHROPIC_API_KEY</code> or <code>OPENAI_API_KEY</code> to
+      <code>.env</code> — or enter an allocation by hand below, which uses the
+      same validation.
+    </div>
+  </section>
+
+  <!-- Manual entry: the same validation, no model -->
+  <section class="card" id="manualCard">
+    <h2>Or set it by hand</h2>
+    <p class="hint">Percentages must total exactly 100.</p>
+    <div id="manualRows"></div>
+    <div class="row mt">
+      <button class="ghost" id="addRow">Add token</button>
+      <button id="validateBtn">Validate</button>
+      <span id="validateSpin" class="spinner hidden"></span>
+      <span class="tid" id="manualTotal"></span>
+    </div>
+  </section>
+
+  <!-- Result -->
+  <section class="card hidden" id="resultCard">
+    <div class="spread">
+      <h2 id="resultTitle">Strategy</h2>
+      <span class="tid" id="resultSource"></span>
+    </div>
+    <div id="problems"></div>
+    <div id="strategy"></div>
+  </section>
+
+  <!-- Wallet -->
+  <section class="card">
+    <div class="spread">
+      <h2>Connect a wallet</h2>
+      <span class="tid" id="walletStatus"></span>
+    </div>
+    <p class="hint">
+      Scan with HashPack to grant the agent a capped spending allowance. Your
+      keys never leave your wallet, and the allowance is revocable — though the
+      agent does briefly hold funds while a swap executes.
+    </p>
+
+    <!-- project id, needed before any QR can be produced -->
+    <div id="wcSetup" class="hidden">
+      <div class="notice">
+        Needs a free WalletConnect project id from
+        <a href="https://cloud.reown.com" target="_blank" rel="noopener"
+           style="color:inherit">cloud.reown.com</a>.
+      </div>
+      <div class="row mt">
+        <input id="wcProjectId" placeholder="32-character project id"
+               autocomplete="off" spellcheck="false" style="flex:1;min-width:230px">
+        <button id="saveWcBtn">Save</button>
+        <label class="row" style="gap:6px;color:var(--muted);font-size:13px">
+          <input type="checkbox" id="wcPersist" style="width:auto"> remember
+        </label>
+      </div>
+      <div class="problem mt hidden" id="wcError"></div>
+    </div>
+
+    <div class="row mt">
+      <button id="connectBtn">Connect wallet</button>
+    </div>
+
+    <!-- QR -->
+    <div id="qrBox" class="hidden mt">
+      <canvas id="qrCanvas" style="border-radius:8px;background:var(--bg)"></canvas>
+      <div class="row mt">
+        <input id="wcUri" readonly style="flex:1;font-family:var(--mono);font-size:11px">
+        <button class="ghost" id="copyUri">Copy link</button>
+      </div>
+      <p class="hint" style="margin:8px 0 0">
+        Scan with HashPack, or paste the link into a desktop wallet.
+      </p>
+    </div>
+
+    <!-- connected -->
+    <div id="walletConnected" class="hidden mt">
+      <div class="row">
+        <span class="tid">connected as</span>
+        <strong id="walletAccount" style="font-family:var(--mono)"></strong>
+        <button class="ghost" id="disconnectBtn">Disconnect</button>
+      </div>
+
+      <div class="limits" style="display:block">
+        <div class="k" style="color:var(--muted);font-size:11.5px;
+             text-transform:uppercase;letter-spacing:0.05em">Spending caps</div>
+        <div id="grantRows"></div>
+        <div class="row mt">
+          <button class="ghost" id="addGrant">Add token</button>
+          <button id="approveBtn">Request approval</button>
+        </div>
+      </div>
+
+      <pre id="approvalResult" class="hidden mt"
+           style="background:var(--bg);padding:12px;border-radius:8px;
+                  font-size:12px;overflow-x:auto;color:var(--muted)"></pre>
+    </div>
+  </section>
+
+  <!-- Holdings -->
+  <section class="card">
+    <h2>Holdings</h2>
+    <p class="hint">Read straight from the mirror node. Free, and needs no key.</p>
+    <div class="row">
+      <input id="account" placeholder="0.0.10140555 or 0x…" style="flex:1;min-width:220px">
+      <button class="ghost" id="loadBtn">Load</button>
+      <span id="portfolioSpin" class="spinner hidden"></span>
+    </div>
+    <div id="portfolio" class="mt"></div>
+  </section>
+
+  <!-- Market -->
+  <section class="card">
+    <div class="spread">
+      <h2>Tradable tokens</h2>
+      <span class="tid" id="marketNote"></span>
+    </div>
+    <div id="tokens"></div>
+  </section>
+
+  <!-- Setup, collapsed once configured -->
+  <details id="setupBlock" class="card" style="padding:0;border-style:dashed">
+    <summary style="padding:18px 20px;cursor:pointer;list-style:none;
+                    font-size:15px;font-weight:600;text-transform:uppercase;
+                    letter-spacing:0.06em;color:var(--muted)">
+      Setup <span class="tid" id="setupSummary" style="text-transform:none;
+                  letter-spacing:0;font-weight:400;margin-left:8px"></span>
+    </summary>
+    <div style="padding:0 20px 6px">
+      <p class="hint">
+        Optional. Everything above works without any of this — only the prompt
+        box needs an AI key, and only the QR needs a wallet project id.
+      </p>
+    </div>
+  <!-- Agent account -->
+  <section class="card" id="operatorCard">
+    <div class="spread">
+      <h2>Agent account</h2>
+      <span class="tid" id="opStatus"></span>
+    </div>
+    <p class="hint" id="opHint">
+      The account the agent signs with. Its key is checked against the
+      account's on-chain public key before being accepted — no transaction, no
+      fee. It stays on this machine and is never shown back to you.
+      <strong>Users never enter a key</strong>; they connect a wallet by QR.
+    </p>
+
+    <div id="opForm">
+      <div class="row">
+        <input id="opAccount" placeholder="0.0.x" autocomplete="off"
+               spellcheck="false" style="flex:1;min-width:150px">
+        <input type="password" id="opKey" placeholder="private key (DER or hex)"
+               autocomplete="off" spellcheck="false" style="flex:2;min-width:220px">
+        <button id="saveOpBtn">Verify &amp; save</button>
+        <span id="opSpin" class="spinner hidden"></span>
+      </div>
+      <label class="row mt" style="gap:6px;color:var(--muted);font-size:13px">
+        <input type="checkbox" id="opPersist" checked style="width:auto">
+        remember in .env (written owner-only)
+      </label>
+    </div>
+
+    <div id="opActive" class="hidden">
+      <table style="margin-top:4px">
+        <tbody>
+          <tr><td class="tid">account</td><td><strong id="opAccountOut"></strong></td></tr>
+          <tr><td class="tid">key type</td><td id="opKeyType"></td></tr>
+          <tr><td class="tid">balance</td><td class="num" id="opBalance"></td></tr>
+          <tr><td class="tid">evm</td><td class="tid" id="opEvm"></td></tr>
+        </tbody>
+      </table>
+      <div class="row mt">
+        <button class="ghost" id="clearOpBtn">Use a different account</button>
+      </div>
+    </div>
+
+    <div id="opWarnings"></div>
+    <div class="problem mt hidden" id="opError"></div>
+  </section>
+
+  <!-- LLM key -->
+  <section class="card" id="keyCard">
+    <div class="spread">
+      <h2>AI model</h2>
+      <span class="tid" id="keyStatus"></span>
+    </div>
+    <p class="hint" id="keyHint">
+      Paste an Anthropic or OpenAI key to turn on the prompt box. It stays on
+      this machine, is never shown back to you in full, and is not logged.
+    </p>
+
+    <div id="keyForm">
+      <div class="row">
+        <input type="password" id="apiKey" placeholder="sk-ant-… or sk-…"
+               autocomplete="off" spellcheck="false" style="flex:1;min-width:230px">
+        <button id="saveKeyBtn">Save</button>
+        <span id="keySpin" class="spinner hidden"></span>
+      </div>
+      <div class="row mt">
+        <input id="modelName" placeholder="model (optional)" style="flex:1;min-width:180px">
+        <label class="row" style="gap:6px;color:var(--muted);font-size:13px">
+          <input type="checkbox" id="persistKey" style="width:auto">
+          remember in .env
+        </label>
+        <label class="row" style="gap:6px;color:var(--muted);font-size:13px">
+          <input type="checkbox" id="verifyKey" checked style="width:auto">
+          test it first
+        </label>
+      </div>
+      <p class="hint" style="margin:10px 0 0">
+        Testing makes one small call to confirm the key works. Untick to save
+        without testing — useful offline, or if the provider is having a
+        wobble.
+      </p>
+    </div>
+
+    <div id="keyActive" class="hidden">
+      <div class="row">
+        <button class="ghost" id="clearKeyBtn">Use a different key</button>
+      </div>
+    </div>
+
+    <div class="problem mt hidden" id="keyError"></div>
+  </section>
+
+  </details>
+
+  <footer>
+    Hedera testnet · prices from SaucerSwap pools · testnet prices are not real
+    market data
+  </footer>
+</div>
+
+<script src="/static/app.js"></script>
+<script type="module">
+  import { initWallet } from "/static/wallet.js";
+  initWallet();
+</script>
+</body>
+</html>

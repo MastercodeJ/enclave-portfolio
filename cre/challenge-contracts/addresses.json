@@ -1,0 +1,8 @@
+{
+  "network": "ethereum-testnet-sepolia",
+  "admin": "0xBe236994504F7B897c7DA48FCA4ddd466a63C783",
+  "vETH": "0x4aa3D7B770cA3b4050a3321EE3aD875831D2297c",
+  "vUSD": "0xE41790a327Dc515A76e1d96e41b49655b4258FBe",
+  "lending": "0x0e05af11Ef7F718D191A54a15F2627d99df09d98",
+  "official_lending": "0x88574e7Cc0027afd04951daa09B64d4441931ba1"
+}

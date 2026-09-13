@@ -1,0 +1,9 @@
+{
+  "schedule": "0 */5 * * * *",
+  "portfolio_base_url": "http://127.0.0.1:8787",
+  "account_id": "0.0.1027",
+  "secrets_ids": {
+    "portfolio_api_key_id": "rebalancer_portfolio_api_key",
+    "portfolio_spec_secret_id": "rebalancer_portfolio_spec"
+  }
+}

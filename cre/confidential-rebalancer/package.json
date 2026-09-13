@@ -1,0 +1,20 @@
+{
+  "name": "confidential-rebalancer-workflow",
+  "version": "1.0.0",
+  "main": "dist/main.js",
+  "private": true,
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "mock:server": "bun --env-file=../.env mock-server.js",
+    "trace": "bun --env-file=../.env trace.ts"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@chainlink/cre-sdk": "1.18.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "5.9.3"
+  }
+}

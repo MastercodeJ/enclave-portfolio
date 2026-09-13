@@ -1,0 +1,7 @@
+.env
+node_modules/
+dist/
+*.wasm
+
+# CRE compiler scratch bundles.
+.cre_build_tmp.js

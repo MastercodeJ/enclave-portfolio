@@ -1,0 +1,13 @@
+{
+  "schedule": "0 */2 * * * *",
+  "chain_name": "ethereum-testnet-sepolia",
+  "rpc_url": "https://ethereum-sepolia-rpc.publicnode.com",
+  "gas_limit": "200000",
+  "secrets_ids": {
+    "private_key_id": "liquidation_private_key",
+    "policy_id": "liquidation_policy"
+  },
+  "lending_address": "0x0e05af11Ef7F718D191A54a15F2627d99df09d98",
+  "veth_address": "0x4aa3D7B770cA3b4050a3321EE3aD875831D2297c",
+  "vusd_address": "0xE41790a327Dc515A76e1d96e41b49655b4258FBe"
+}

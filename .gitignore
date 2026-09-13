@@ -1,0 +1,22 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+
+# Never commit keys.
+.env
+
+# Saved user strategies are local state.
+strategies/
+
+# The earlier Hedera prototype: unrelated to this submission and carries ~300MB
+# of vendored Uniswap libraries.
+mandate/
+
+# Foundry build output and frontend build.
+cre/challenge-contracts/out/
+cre/challenge-contracts/cache/
+cre/challenge-frontend/dist/
