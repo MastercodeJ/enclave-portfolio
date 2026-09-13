@@ -316,3 +316,25 @@ button { font-family: inherit; cursor: pointer; }
 .stat-chip { background-color: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 0.75rem; padding: 0.75rem 1.25rem; display: flex; flex-direction: column; gap: 0.15rem; }
 .stat-chip-label { font-size: 0.7rem; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.05em; }
 .stat-chip-value { font-size: 1.125rem; font-weight: 700; color: #fff; }
+
+/* --- dashboard --------------------------------------------------------- */
+.dash-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin: 24px 0 16px; }
+.dash-head h1 { margin: 0 0 4px; }
+.enclave-badge { background: #0f1a35; color: #5ee7df; border: 1px solid #1c2a4d; padding: 6px 12px; border-radius: 999px; font-size: 13px; white-space: nowrap; }
+.stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin: 12px 0; }
+.stat-value.sealed { color: #5ee7df; font-family: ui-monospace, Menlo, monospace; font-size: 14px; letter-spacing: 1px; }
+.stat-value.sealed::before { content: "🔒 "; }
+.table { width: 100%; border-collapse: collapse; margin: 8px 0 16px; font-size: 14px; }
+.table th, .table td { text-align: left; padding: 8px 6px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+.table th { color: #8fa3c7; font-weight: 500; }
+.weight { display: flex; align-items: center; gap: 8px; min-width: 160px; }
+.weight-bar { height: 8px; border-radius: 4px; background: linear-gradient(90deg, #5ee7df, #3b82f6); min-width: 2px; }
+.tx-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; font-size: 14px; }
+.tx-list li { display: flex; gap: 12px; align-items: center; }
+.tx-list a { font-family: ui-monospace, Menlo, monospace; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 12px; }
+.two-col { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 16px; }
+.small { font-size: 12px; }
+.nav { display: flex; gap: 14px; margin-left: 18px; }
+.nav a { color: #b8c7e6; text-decoration: none; font-size: 14px; }
+.nav a.active { color: #5ee7df; }

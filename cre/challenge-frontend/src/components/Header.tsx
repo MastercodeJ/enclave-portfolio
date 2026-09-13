@@ -1,3 +1,4 @@
+import { NavLink } from "react-router-dom";
 import { useWallet } from "@/lib/wallet";
 
 export function Header() {
@@ -10,12 +11,16 @@ export function Header() {
   return (
     <header className="header">
       <div className="header-inner">
-        <span className="brand">🔒 Liquidation Protection Challenge</span>
+        <span className="brand">🔒 Enclave Portfolio</span>
+        <nav className="nav">
+          <NavLink to="/" end>Dashboard</NavLink>
+          <NavLink to="/position">Position &amp; admin</NavLink>
+        </nav>
 
         <div className="header-right">
           <a
             className="github-btn"
-            href="https://github.com/solangegueiros/cf-liquidation-protection-challenge"
+            href="https://github.com/MastercodeJ/enclave-portfolio"
             target="_blank"
             rel="noopener noreferrer"
             title="View source on GitHub"
