@@ -91,6 +91,47 @@ fixed-point 1e8; weights and health factors are integer basis points computed
 exactly as the contracts compute them. Every division truncates, never in the
 trader's favour. Every parser refuses rather than guesses.
 
+## Deploy to the Chainlink DON
+
+Both workflows use the **private registry**: authorised by your `cre login`
+session, no wallet, no gas, no mainnet. Requires Chainlink deploy access and
+Confidential Workflows access (both gated approvals during the beta).
+`production-settings` already targets the official challenge contract and
+Uniswap V3 on Sepolia.
+
+```bash
+cd cre
+export PATH="$HOME/.cre/bin:$HOME/.bun/bin:$PATH"
+
+# 1. compile -- prints the binary hash the Vault DON will attest before releasing secrets
+cre workflow compile ./liquidation-protection --target production-settings
+cre workflow compile ./confidential-rebalancer --target production-settings
+
+# 2. secrets -> Vault DON  (names from secrets.yaml, values from .env; opens a browser)
+cre secrets create secrets.yaml --target production-settings --secrets-auth=browser
+cre secrets list   --target production-settings --secrets-auth=browser      # ids only, never values
+
+# 3. deploy -- compiles, uploads, registers; active immediately
+cre workflow deploy ./liquidation-protection --target production-settings
+cre workflow deploy ./confidential-rebalancer --target production-settings
+
+# 4. verify -- also visible at https://app.chain.link/cre/workflows
+cre workflow list --registry private
+
+# manage
+cre workflow pause    liquidation-protection --target production-settings
+cre workflow activate liquidation-protection --target production-settings
+cre workflow delete   liquidation-protection --target production-settings
+```
+
+Once deployed, the liquidation workflow reacts to `ChallengeStarted` /
+`PriceUpdate` on the official contract with a 2-minute cron backstop, and the
+rebalancer runs every 5 minutes. Gas for the transactions they send comes from
+the workflow wallet's Sepolia ETH.
+
+Until access is approved, `cre workflow simulate` runs a single tick locally
+against the same contracts.
+
 ## Status and evidence
 
 - Rebalancer: 80/80 tests, simulator `EXECUTED` through the Nitro path

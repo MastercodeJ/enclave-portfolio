@@ -64,7 +64,8 @@ Pick policy values that appear nowhere in this repository. The tests and
 ## Deploy
 
 ```bash
-cre secrets create ../secrets.yaml --target production-settings --secrets-auth=browser
+cd ..   # cre/
+cre secrets create secrets.yaml --target production-settings --secrets-auth=browser
 cre workflow deploy ./liquidation-protection --target production-settings
 cre workflow list --registry private
 ```
