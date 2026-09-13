@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="700" viewBox="0 0 1400 700">
+<rect width="1400" height="700" rx="16" fill="#0d1117"/>
+<rect x="0" y="0" width="1400" height="44" rx="16" fill="#161b22"/><rect x="0" y="22" width="1400" height="22" fill="#161b22"/>
+<circle cx="24" cy="22" r="7" fill="#ff5f56"/><circle cx="46" cy="22" r="7" fill="#ffbd2e"/><circle cx="68" cy="22" r="7" fill="#27c93f"/>
+<text x="700.0" y="27" text-anchor="middle" font-family="Menlo, Monaco, 'DejaVu Sans Mono', monospace" font-size="14" fill="#8b949e">cre workflow simulate ./confidential-rebalancer --target=staging-settings</text>
+<g font-family="Menlo, Monaco, 'DejaVu Sans Mono', monospace" font-size="17" xml:space="preserve">
+<text x="36" y="100" fill="#e6edf3">Compiling workflow...</text>
+<text x="36" y="126" fill="#7ee787">✓ Workflow compiled</text>
+<text x="36" y="152" fill="#7ee787">✓ Simulation limits enabled</text>
+<text x="36" y="178" fill="#e6edf3">  HTTP: req=120kb resp=250kb timeout=10s | ConfHTTP: req=125kb resp=500kb timeout=1m30s | Consensus obs=25kb | ChainWrite evm_report=50kb evm_gas=10000000 solana_report=265b solana_cu=300000 | WASM binary=100mb compressed=20mb</text>
+<text x="36" y="204" fill="#e6edf3">  Binary hash: a932725afb3de14880fb2aa14688401ba255a637c935200b528bd31d21b76a1e</text>
+<text x="36" y="230" fill="#e6edf3">  Config hash: 4e609bd16bd38a3e2d0d8873744fb462f5df2245d0a22e963ac8c9c4044b1b82</text>
+<text x="36" y="256" fill="#e6edf3">2026-09-13T17:45:48Z [SIMULATION] Simulator Initialized</text>
+<text x="36" y="282" fill="#e6edf3">2026-09-13T17:45:48Z [SIMULATION] Running trigger trigger=cron-trigger@1.0.0</text>
+<text x="36" y="308" fill="#8b949e">╭────────────────────────────────────────────────────────────────────────────────────────────────────╮</text>
+<text x="36" y="334" fill="#8b949e">│ Trigger requested TEE Execution your trigger will run in one of the following Tees:                │</text>
+<text x="36" y="360" fill="#8b949e">│     - AWS Nitro in us-west-2                                                                       │</text>
+<text x="36" y="386" fill="#8b949e">│ The simulator is not a real TEE, and is meant to debug.                                            │</text>
+<text x="36" y="412" fill="#8b949e">│ Do not use it for sensitive information.                                                           │</text>
+<text x="36" y="438" fill="#8b949e">│ During real execution, user logs for this trigger will not be visible, and will not leave the TEE. │</text>
+<text x="36" y="464" fill="#8b949e">│ They are presented in the simulator for debugging only.                                            │</text>
+<text x="36" y="490" fill="#8b949e">│                                                                                                    │</text>
+<text x="36" y="516" fill="#8b949e">╰────────────────────────────────────────────────────────────────────────────────────────────────────╯</text>
+<text x="36" y="542" fill="#7ee787">2026-09-13T17:50:00Z [USER LOG] rebalance-executed legs=2</text>
+<text x="36" y="568" fill="#7ee787">✓ Workflow Simulation Result:</text>
+<text x="36" y="594" fill="#e6edf3">&quot;{\&quot;status\&quot;:\&quot;EXECUTED\&quot;,\&quot;tradeCount\&quot;:2,\&quot;executionId\&quot;:\&quot;mock-exec-1789293000070\&quot;}&quot;</text>
+<text x="36" y="620" fill="#e6edf3">2026-09-13T17:50:00Z [SIMULATION] Execution finished signal received</text>
+<text x="36" y="646" fill="#e6edf3">2026-09-13T17:50:00Z [SIMULATION] Skipping WorkflowEngineV2</text>
+</g></svg>

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="414" viewBox="0 0 1180 414">
+<rect width="1180" height="414" rx="16" fill="#0d1117"/>
+<rect x="0" y="0" width="1180" height="44" rx="16" fill="#161b22"/><rect x="0" y="22" width="1180" height="22" fill="#161b22"/>
+<circle cx="24" cy="22" r="7" fill="#ff5f56"/><circle cx="46" cy="22" r="7" fill="#ffbd2e"/><circle cx="68" cy="22" r="7" fill="#27c93f"/>
+<text x="590" y="27" text-anchor="middle" font-family="Menlo, Monaco, 'DejaVu Sans Mono', monospace" font-size="14" fill="#8b949e">bun run check   (your policy vs. every scenario, contract-exact math)</text>
+<g font-family="Menlo, Monaco, 'DejaVu Sans Mono', monospace" font-size="17" xml:space="preserve">
+<text x="36" y="100" fill="#79c0ff">$ bun --env-file=../.env check.ts</text>
+<text x="36" y="126" fill="#e6edf3">scenario            survived  continuity   vETH used   vUSD used   actions</text>
+<text x="36" y="152" fill="#e6edf3">gradual-decline     yes        100.00%     2.27          0.00   1</text>
+<text x="36" y="178" fill="#e6edf3">sudden-crash        yes        100.00%     2.27          0.00   1</text>
+<text x="36" y="204" fill="#e6edf3">temporary-wick      yes        100.00%     2.27          0.00   1</text>
+<text x="36" y="230" fill="#e6edf3">two-stage           yes        100.00%     2.27          0.00   1</text>
+<text x="36" y="256" fill="#7ee787">safe-volatility     yes        100.00%     2.27          0.00   1</text>
+<text x="36" y="282" fill="#e6edf3">harsh: to 1300      yes        100.00%     2.27          0.00   1</text>
+<text x="36" y="308" fill="#e6edf3">harsh: to 1150      yes        100.00%     3.82          0.00   2</text>
+<text x="36" y="334" fill="#e6edf3">harsh: to 1000      yes        100.00%     4.62          0.00   2</text>
+<text x="36" y="360" fill="#e6edf3">harsh: to 850       yes         97.25%     5.00        770.00   4</text>
+</g></svg>

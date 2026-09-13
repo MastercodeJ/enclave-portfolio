@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="570" viewBox="0 0 1400 570">
+<rect width="1400" height="570" rx="16" fill="#0d1117"/>
+<rect x="0" y="0" width="1400" height="44" rx="16" fill="#161b22"/><rect x="0" y="22" width="1400" height="22" fill="#161b22"/>
+<circle cx="24" cy="22" r="7" fill="#ff5f56"/><circle cx="46" cy="22" r="7" fill="#ffbd2e"/><circle cx="68" cy="22" r="7" fill="#27c93f"/>
+<text x="700.0" y="27" text-anchor="middle" font-family="Menlo, Monaco, 'DejaVu Sans Mono', monospace" font-size="14" fill="#8b949e">live on Sepolia: price drop -&gt; enclave deposits -&gt; liquidation check finds nothing</text>
+<g font-family="Menlo, Monaco, 'DejaVu Sans Mono', monospace" font-size="17" xml:space="preserve">
+<text x="36" y="100" fill="#79c0ff">$ script/scenario.sh price 1500</text>
+<text x="36" y="126" fill="#7ee787">  updatevETHPrice(1500)      0x7d3c…  ok</text>
+<text x="36" y="152" fill="#ff7b72">  hf (stored)         133          hf at current price 100   LIQUIDATABLE</text>
+<text x="36" y="178" fill="#e6edf3"></text>
+<text x="36" y="204" fill="#79c0ff">$ cre workflow simulate ./liquidation-protection --target=staging-settings --trigger-index=1 --non-interactive</text>
+<text x="36" y="230" fill="#8b949e">│ Trigger requested TEE Execution your trigger will run in one of the following Tees:</text>
+<text x="36" y="256" fill="#8b949e">│     - AWS Nitro in us-west-2</text>
+<text x="36" y="282" fill="#7ee787">[USER LOG] acted kind=deposit tx=0x0256f55f7bf8938bdaea88e8ee238c5b8a536d15840c6c9b6254addda767ce4f</text>
+<text x="36" y="308" fill="#e6edf3"></text>
+<text x="36" y="334" fill="#79c0ff">$ script/scenario.sh status</text>
+<text x="36" y="360" fill="#e6edf3">  price           1500.00 vUSD/vETH</text>
+<text x="36" y="386" fill="#e6edf3">  collateral         6.98 vETH      free vETH 3.02</text>
+<text x="36" y="412" fill="#e6edf3">  debt            7001.00 vUSD      free vUSD 7001.00</text>
+<text x="36" y="438" fill="#7ee787">  hf (stored)         116          hf at current price 116   safe</text>
+<text x="36" y="464" fill="#e6edf3"></text>
+<text x="36" y="490" fill="#7ee787">  checkAllHF()               0x91ae…  ok</text>
+<text x="36" y="516" fill="#e6edf3">  liquidations 0</text>
+</g></svg>
