@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/logo-512.png" width="128" alt="Enclave Portfolio"></p>
+
 # Enclave Portfolio — ETHOnline 2026, Chainlink CRE
 
 Two Chainlink CRE **Confidential Workflows**. In both, the strategy is a secret
